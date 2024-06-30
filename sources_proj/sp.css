@@ -1,0 +1,71 @@
+html * {
+   font-family: "Barlow", "sans-serif;
+}
+
+
+#title-block-header {
+  margin-bottom: 50px;
+}
+
+body {
+  font-family: 'Barlow', sans-serif;
+}
+
+h1 {
+  font-family: 'Roboto', sans-serif;
+  font-size: 42px;
+  line-height: 44px;
+  font-weight: bold;
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+
+h2 {
+  font-family: 'Roboto', sans-serif;
+  font-size: 32px;
+  line-height: 44px;
+  font-weight: bold;
+  letter-spacing: 0.03em;
+  width: 100%;
+  border-bottom: 1px solid grey;
+  margin-top: 60px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.img-center {
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+  width: 50%;
+  display:block !important;
+}
+
+/*--- TOC --- */
+.list-group-item.active {
+  background-color: #12569b;
+  border-color: #113B5C;
+  font-weight: bold;
+  color: #fff;
+}
+
+.list-group-item:hover {
+  color: #0a3867; /* darker color when hovering */
+}
+
+/*--- Links --- */
+a {
+  color: #12569b;
+  font-weight: bolder;
+}
+
+a:hover {
+ color: #14497f; /* darker color when hovering */
+}
+#TOC {
+  background: url('unical.png');
+  background-size: contain;
+  padding-top: 190px !important;
+  padding-left: 5px !important;
+  background-repeat: no-repeat;
+}

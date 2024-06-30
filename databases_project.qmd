@@ -1,0 +1,587 @@
+---
+title: Databases Project - Compagnia Assicurativa
+subtitle: Master in Artificial Intelligence and Data Science A.A. 2023/2024
+author: "Marco Gaudio"
+date: today
+format:
+ html:
+   code-background: true
+   fig-width: 8
+   fig-height: 4
+   fig-align: center
+   code-fold: false
+   toc: true
+   fig-format: png
+   toc-location: right
+   highlight-style: github
+   code-block-border-left: "#4f6952"
+   code-block-bg: true
+   number-sections: true
+   code-link: true
+   reference-links: true
+   reference-location: margin
+   embed-resources: true
+
+   include-after-body: sources_proj/sp_afterbody.html
+
+execute:
+  warning: false
+  message: false
+  cache: false
+css: sources_proj/sp.css
+---
+
+```{r, echo = F, include = F}
+
+options(scipen=999)
+include_validation = FALSE
+
+
+# library(dplyr)
+# library(ggplot2)
+# library(openxlsx)
+# library(stringr)
+# library(knitr)
+# # library(formattable)
+# library(lubridate)
+# library(purrr)
+# library(kableExtra)
+# library(tidyr)
+# library(readr)
+# library(stringi)
+# library(monitr)
+# library(pointblank)
+# source("~/data_quality/databases/utils.R")
+#C:\Program Files\MySQL\MySQL Server 8.4\bin
+```
+
+Il progetto si pone l'obiettivo di sviluppare una base di dati per una *compagnia riassicurativa Life & Health* per tenere traccia in modo strutturato dei dati mandati dalle compagnie assicurative clienti. In particolare, si vuole strutturare la base dati relativa ad un singolo prodotto assicurativo (**cessione del quinto della pensione**). I dati vengono inviati dalle compagnie cedenti su base annuale, e riguardano:
+
+* **Premi**
+* **Sinistri**
+* **Riscatti della polizza**
+
+L'obiettivo finale è quello di utilizzare i database per monitorare la *mortality experience* ai fini di valutare la performance del prodotto.
+
+Di seguito sono presentate le specifiche della progettazione, per una singola compagnia e per il prodotto definito in precedenza.
+
+# Specifiche della progettazione
+
+## Descrizione del contesto
+Progettare una base dati da utilizzare per gestire le informazione relative ai *premi assicurativi*, ai *sinistri* ed ai *riscatti* ceduti da una singola compagnia cedente e relativi al prodotto di **Cessione del Quinto della Pensione (CQP)**.
+Tale prodotto assicurativo è specifico per i prestiti che vengono rimborsati tramite la trattenuta diretta di al massimo $\frac{1}{5}$ della pensione del contraente. La compagnia paga il debito residuo nel caso di morte  dell'assicurato prima del termine del prestito. Inoltre, il contraente può decidere di estinguere il debito in anticipo, in tal caso avviene il rimborso parziale del premio della polizza assicurativa.
+Si noti che il prodotto di cessione del quinto della pensione è un prodotto a premio singolo, perciò vi sarà il pagamento di un unico premio assicurativo per tutta la durata della polizza.
+
+## Specifiche tecniche
+
+* Ogni polizza assicurativa ha *un solo* premio pagato (il prodotto CQP è un prodotto a premio unico).
+* Una polizza potrebbe essere stata riscattata prima del termine della durata della polizza per via dell'estinzione anticipata del debito sottostante la polizza stessa.
+* Una polizza potrebbe essere incorsa in un sinistro (solo ed esclusivamente prima della scadenza della polizza) per via del decesso dell'assicurato.
+* I dati vengono inviati dalla compagnia assicurativa al 31.12 di ciascun anno e riguardano le polizze sottoscritte nell'anno appena terminato.
+* Ogni polizza può avere un unico sinistro o un unico riscatto (non entrambi).
+
+## Obiettivi
+
+* Tracciamento delle relazioni tra le polizze emesse, riscattate e sinistrate.
+* Monitoraggio della performance del portafoglio assicurativo.
+
+## Entità e attributi
+
+Le entità coinvolte nella progettazione della base dati sono le seguenti:
+
+* ***Premiums([pol_number]{.underline}(PK), inception_date, term_date, duration, gender, birth_date, insured_capital, total_premium, ceded_premium)***
+
+* ***Lapses([lapse_number]{.underline}(PK), lapse_date, total_lapsed_amount, ceded_lapsed_amount, flag_lapse, pol_number(FK))***
+
+* ***Claims([claim_number]{.underline}(PK), event_date, arrival_date, total_claim_amount, ceded_claim_amount, flag_claim, claim_status, pol_number(FK))***
+
+Di seguito una descrizione dettagliata degli attributi di ciascuna entità coinvolta nella progettazione della base dati.
+
+* **`premiums`**
+  + *`pol_number`* - numero di polizza (**chiave primaria**).
+  + *`inception_date`* - data di inizio della copertura assicurativa.
+  + *`term_date`* - data di scadenza della copertura assicurativa.
+  + *`duration`* - durata della copertura assicurativa.
+  + *`gender`* - sesso dell'assicurato.
+  + *`birth_date`* - data di nascita dell'assicurato.
+  + *`insured_capital`* - ammontare del capitale assicurato.
+  + *`total_premium`* - premio originale pagato dal contraente alla compagnia assicurativa.
+  + *`ceded_premium`* - premio ceduto dalla compagnia assicurativa al riassicuratore.
+
+* **`lapses`**
+  + *`lapse_number`* - numero di riscatto (**chiave primaria**).
+  + *`lapse_date`* - data di riscatto della polizza.
+  + *`total_lapsed_amount`* - importo totale riscattato dalla compagnia assicurativa.
+  + *`ceded_lapsed_amount`* - importo del riscatto ceduto al riassicuratore.
+  + *`flag_lapse`* - flag che indica se la polizza è stata riscattata (nel database Lapses sarà sempre 1).
+  + *`pol_number`* - numero di polizza (**chiave esterna**).
+  
+* **`claims`**
+  + *`claim_number`* - numero di sinistro (**chiave primaria**).
+  + *`event_date`* - data dell'evento, i.e. decesso dell'assicurato.
+  + *`arrival_date`* - data di arrivo della richiesta di indennizzo.
+  + *`total_claim_amount`* - importo totale richiesto dall'assicurato.
+  + *`ceded_claim_amount`* - importo del sinistro ceduto al riassicuratore.
+  + *`flag_claim`* - flag che indica se la polizza è stata sinistrata (nel database Claims sarà sempre 1).
+  + *`claim_status`* - stato del sinistro.
+  + *`pol_number`* - numero di polizza (**chiave esterna**).
+
+
+# Schema Entità-Relazione
+
+In questa sezione viene mostrato nel dettaglio lo schema entità relazione di ciascuna entità coinvolta nella progettazione della base dati e la relazione tra le entità coinvolte.
+
+
+## Prima Forma Normale (1NF)
+Innanzitutto, si noti come, per come sono stati progettati i database, tutti e tre sono in **prima forma normale (1NF)**.
+La prima forma normale richiede che ogni colonna in una tabella contenga valori atomici (non divisibili) e che ogni riga della tabella sia unica.
+Infatti,  tutte le tabelle rispettano la prima forma normale poiché ogni colonna contiene valori atomici e ogni riga è unica, poichè ogni tabella considerata ha una chiave primaria.
+
+![fig.1 - schema Entità - Relazione, Compagnia Assicurativa](schemaER.png)
+
+## Cardinalità
+La cardinalità tra la tabella `premiums` e la tabella `lapses` è di tipo zero-to-one. Questo significa che ogni riga nella tabella "premiums" può essere associata a zero o una riga nella tabella "lapses", ma non più di una.
+
+* Ogni polizza nella tabella "premiums" può avere zero o un riscatto associato nella tabella "lapses".
+* Ogni riga nella tabella "lapses" è associata esclusivamente a una polizza nella tabella "premiums".
+
+Questa cardinalità riflette il fatto che un riscatto è un evento che può verificarsi o meno per una polizza, e che non è necessario che ogni polizza subisca un riscatto
+
+Analoghe considerazioni valgono per la cardinalità tra la tabella `premiums` e la tabella `claims`. Infatti:
+
+* Ogni polizza può avere zero o al più un sinistro associato alla tabella `claims`.
+* Ogni sinistro della tabella `claims` è associato ad una sola polizza della tabella `premiums`.
+
+
+## Entità deboli
+Le **entità deboli** sono entità che non possono essere identificate univocamente solo dai propri attributi e necessitano di un riferimento a un'altra entità.
+
+- **`premiums`**: Non contiene riferimenti ad altre tabelle. Non è un'entità debole.
+- **`lapses`**: Contiene un riferimento a **`premiums`** attraverso la chiave esterna `pol_number`. Tuttavia, `lapses` ha una chiave primaria autonoma (`lapse_number`), quindi non è un'entità debole.
+- **`claims`**: Contiene un riferimento a **`premiums`** attraverso la chiave esterna `pol_number`, ma anche in questo caso, `claims` ha una chiave primaria autonoma (`claim_number`), quindi non è un'entità debole.
+
+Nessuna delle tabelle rappresenta un'entità debole.
+
+## Dipendenze funzionali
+
+Una dipendenza funzionale esiste quando un attributo in una tabella è determinato da un altro attributo.
+Si noti che per ciascuna tabella costruita si hanno le seguenti dipendenze funzionali:
+
+- **`premiums`**
+  + *`pol_number`* implica le seguenti: *`inception_date`*, *`term_date`*, *`gender`*, *`birth_date`*, *`insured_capital`*, *`total_premium`*.
+  + l'attributo *`duration`* dipende funzionalmente da *`inception_date`* e *`term_date`*, essendo la differenza in anni tra queste due colonne.
+  + l'attributo *`ceded_premium`* dipende funzionalmente da *`total_premium`*, essendo esso la % ceduta del premio totale.
+
+
+- Tabella `lapses`
+  + *`lapse_number`* implica tutti gli attributi nella tabella, eccetto *`ceded_lapsed_amount`* che dipende funzionalmente da *`total_lapsed_amount`*.
+
+- Tabella `claims`
+  + *`claim_number`* → implica tutti gli attributi nella tabella, eccetto *`ceded_claim_amount`* che dipende funzionalmente da *`total_claim_amount`*.
+
+
+# Schema logico del DBMS
+
+In questa sezione viene mostrato lo schema logico del database, con le tabelle create per ciascuna entità coinvolta nella progettazione della base dati.
+Ai fini della progettualità, un numero limitato di righe è stato inserito all'interno di ciascun database, utilizzando il server mySQL direttamente dal **prompt dei comandi**.
+Si noti tuttavia che è possibile caricare i dati all'interno di ciascun database tramite caricamento di diverse tipologie di file (.csv, json, .xlsx) tramite le funzionalità fornite da **mySQL workbench**.
+
+In primo luogo, accedo al server MySQL dal prompt dei comandi con le seguenti istruzioni.
+
+![fig. 2 - accesso al server MySQL da prompt dei comandi](login.png)
+
+
+## Creazione Database
+
+Come primo step è necessario creare un database **compagnia_assicurativa** che conterrà al suo interno le tabelle premiums, lapses e claims definite in precedenza.
+
+```{sql, eval = FALSE}
+CREATE database compagnia_assicurativa;
+
+SHOW databases;
+```
+
+
+![fig.3 - Creazione Database Compagnia Assicurativa](comp_ass.png)
+
+## Premiums
+
+
+```{sql, eval = FALSE}
+CREATE TABLE premiums (
+    pol_number VARCHAR(30) PRIMARY KEY,
+    inception_date DATE,
+    term_date DATE,
+    duration INT,
+    gender VARCHAR(1),
+    birth_date DATE,
+    insured_capital DECIMAL(10,2),
+    total_premium DECIMAL(10,2),
+    ceded_premium DECIMAL(10,2)
+);
+
+# Inserisco i valori all'interno della tabella
+
+INSERT INTO premiums (pol_number, inception_date, term_date, duration, gender,
+birth_date, insured_capital, total_premium, ceded_premium)
+VALUES 
+('POL1234567', '2023-01-01', '2026-01-01', 3, 'M', '1945-05-15',  10000.00, 1200.00,  240.00),
+('POL1234568', '2023-02-01', '2028-02-01', 5, 'F', '1942-06-20',  15000.00, 1500.00,  300.00),
+('POL1234569', '2023-03-01', '2028-03-01', 5, 'M', '1955-07-25',  17000.00, 2000.00,  400.00),
+('POL1234570', '2023-04-01', '2028-04-01', 5, 'F', '1956-08-30',   6000.00, 2500.00,  500.00),
+('POL1234571', '2023-05-01', '2033-05-01', 10, 'M', '1955-09-10', 11000.00, 3000.00,  600.00),
+('POL1234572', '2023-06-01', '2030-06-01', 7, 'F', '1960-10-15',  12000.00, 3500.00,  700.00),
+('POL1234573', '2023-07-01', '2032-07-01', 9, 'M', '1958-11-20',   7000.00, 4000.00,  800.00),
+('POL1234574', '2023-08-01', '2033-08-01', 10, 'F', '1949-12-25',  9000.00,  500.00,  100.00),
+('POL1234575', '2023-09-01', '2033-09-01', 10, 'M', '1949-01-30', 18000.00, 1000.00,  200.00),
+('POL1234576', '2023-10-01', '2033-10-01', 10, 'F', '1961-02-14', 21000.00, 1500.00,  300.00),
+('POL1234510', '2023-01-01', '2030-01-01', 7, 'F', '1960-10-15',  12000.00,  700.00,  120.00),
+('POL1234511', '2023-01-01', '2032-01-01', 9, 'M', '1950-11-20',   6500.00,  900.00,  800.00),
+('POL1234512', '2023-01-01', '2033-01-01', 10, 'F', '1951-12-25',  7000.00, 4500.00,  900.00),
+('POL1234515', '2023-02-01', '2033-02-01', 10, 'M', '1947-01-30', 19000.00, 5000.00, 1000.00),
+('POL1234518', '2023-03-01', '2033-03-01', 10, 'F', '1960-02-14', 28000.00, 5500.00, 1100.00);
+
+```
+
+Per poter verificare l'inserimento delle righe all'interno del database **premiums**, lanciamo il seguente codice:
+
+```{sql, eval = FALSE}
+SELECT * FROM premiums;
+```
+
+
+![fig.4 - table premiums dal server mySQL](db_premi_server.PNG)
+
+## Lapses
+
+```{sql, eval = FALSE}
+CREATE TABLE lapses(
+    lapse_number VARCHAR(30) PRIMARY KEY,
+    lapse_date DATE,
+    total_lapsed_amount DECIMAL(10,2),
+    ceded_lapsed_amount DECIMAL(10,2),
+    flag_lapse INT,
+    pol_number VARCHAR(30),
+    FOREIGN KEY (pol_number) REFERENCES Premiums(pol_number)
+);
+
+# inserisco i valori all'interno della tabella
+
+INSERT INTO lapses (lapse_number, lapse_date, total_lapsed_amount, ceded_lapsed_amount, flag_lapse, pol_number)
+VALUES 
+('LAP1234567', '2024-01-16', 5000.00, 1250.00, 1, 'POL1234567'),
+('LAP1234568', '2024-02-01', 6000.00, 1500.00, 1, 'POL1234574'),
+('LAP1234569', '2024-03-01', 7000.00, 1750.00, 1, 'POL1234575');
+```
+
+In modo analogo alla table premiums, una volta creata la table ed inserite le righe in **lapses**, possiamo mostrare la tabella con il seguente comando:
+
+```{sql, eval = FALSE}
+SELECT * FROM lapses;
+```
+
+![fig.5 - table lapses dal server MySQL](lapses_db_server.PNG)
+
+## Claims
+Seguendo la stessa procedura, viene creata la table `claims` ed inseriti i valori al suo interno.
+```{sql, eval = FALSE}
+CREATE TABLE Claims(
+    claim_number VARCHAR(30) PRIMARY KEY,
+    event_date DATE,
+    arrival_date DATE,
+    total_claim_amount DECIMAL(10,2),
+    ceded_claim_amount DECIMAL(10,2),
+    flag_claim INT,
+    claim_status VARCHAR(30),
+    pol_number VARCHAR(30),
+    FOREIGN KEY (pol_number) REFERENCES Premiums(pol_number)
+);
+
+# inserisco i valori all'interno della tabella
+
+INSERT INTO claims (claim_number, event_date, arrival_date, total_claim_amount, ceded_claim_amount,
+flag_claim, claim_status, pol_number)
+VALUES 
+('CLA127680', '2024-03-21','2024-04-01', 18000.00, 3600.00, 1,'aperto', 'POL1234576'),
+('CLA127681', '2024-05-02','2024-05-21', 24500.00, 5500.00, 1,'chiuso', 'POL1234518'),
+('CLA127683', '2023-12-12','2024-01-30', 4000.00, 400.00,   1,'aperto', 'POL1234570'),
+('CLA127685', '2023-11-02','2023-12-30', 9000.00, 440.00,   1,'chiuso', 'POL1234510');
+
+```
+
+
+```{SQL, eval = FALSE}
+SELECT * FROM claims;
+```
+
+![fig.6 - table claims dal server mySQL](claims_db_server.PNG)
+
+
+# Queries
+
+## Query di selezione e proiezione
+
+* Queries di **selezione**: permettono di filtrare record di una determinata tabella in base ad una specifica condizione, utilizzando la clausola `WHERE`.
+
+* Queries di **proiezione**: vengono utilizzate per scegliere specifiche colonne da una tabella, utili soprattutto quando si vuole visualizzare solo una parte dei dati a disposizione
+
+Molto spesso le queries di selezione e proiezione vengono usate congiuntamente per mostrare i dati di interesse di una tabella.
+
+### Query 1
+Selezionare il numero di polizza delle polizze sinistrate con stato sinistro 'chiuso' e data di evento antecedente al 31.12.2023.
+
+```{sql, eval = FALSE}
+
+SELECT pol_number
+FROM claims
+WHERE claim_status = 'chiuso' AND event_date < '2023-12-31';
+
+```
+
+![fig.7 - query di proiezione n° 1](q_proiez_1.PNG)
+
+### Query 2
+Selezionare il numero di polizza e la data di decorrenza di tutte le polizze i cui assicurati sono di genere Maschile e con un capitale assicurato maggiore o uguale di 10.000 Euro.
+
+```{sql, eval = FALSE}
+
+SELECT pol_number, inception_date
+FROM premiums
+WHERE gender = 'M' AND insured_capital >= 10000;
+
+
+```
+
+![fig.8 - query di proiezione n° 2](q_proiez_2.PNG)
+
+
+### Query 3
+Selezionare il numero di riscatto (lapse_number) e il numero di polizza delle coperture con data di riscatto successiva al 2024-01-15 e premio ceduto maggiore di 200.
+
+
+```{sql, eval = FALSE}
+
+SELECT l.lapse_number, l.pol_number
+FROM lapses l JOIN premiums p ON l.pol_number = p.pol_number
+WHERE l.lapse_date > '2024-01-15' AND p.ceded_premium > 200;
+
+
+```
+
+![fig.8 - query di proiezione n° 3](q_proiez_3.PNG)
+
+In quest'ultimo caso il `JOIN` si è reso necessario per verificare la condizione sul premio ceduto, dato che questa informazione si trova nella tabella `premiums`.
+
+## Query di Join
+
+Le queries di **Join** permettono di analizzare dati provenienti da più tabelle in modo da visualizzare l'output in un unico risultato.
+
+
+### Query 1
+
+Seleziona la data di decorrenza, il genere, il numero di polizza e di sinistro delle polizze sinistrate.
+
+```{sql, eval = FALSE}
+
+SELECT p.inception_date, p.gender, c.pol_number, c.claim_number
+FROM claims c
+JOIN
+premiums p ON c.pol_number = p.pol_number;
+
+
+```
+
+![fig.9 - query di join n° 1](q_join_1.PNG)
+
+
+### Query 2
+
+Selezionare il numero di polizza, la data di decorrenza e la data di scadenza delle polizze riscattate con premio totale maggiore o uguale di 1000 Euro.
+```{sql, eval = FALSE}
+
+SELECT c.pol_number, p.inception_date, p.term_date, 
+FROM lapses l
+JOIN
+premiums p ON l.pol_number = p.pol_number
+WHERE p.total_premium > 1000;
+
+
+```
+
+![fig.9 - query di join n° 2](q_join_2.PNG)
+
+### Query con aggregati
+
+Nelle queries con **aggregati** vengono utilizzate le funzioni di aggregazione (`SUM`, `AVG`, `MAX`, `MIN`) per visualizzare i valori aggregati di una o più colonne di una tabella.
+
+
+### Query 1
+Contare il numero di polizze riscattate per genere.
+```{sql, eval = FALSE}
+
+SELECT p.gender, COUNT(DISTINCT l.lapse_number) AS numero_riscatti 
+FROM premiums p 
+JOIN 
+lapses l ON p.pol_number = l.pol_number 
+GROUP BY p.gender;
+
+```
+
+
+![fig.11 - query di aggregazione n° 1](q_agg_1.PNG)
+
+
+```{sql, eval = FALSE, include = FALSE}
+
+SELECT p.gender, COUNT(DISTINCT c.claim_number) AS numero_sinistri, COUNT(DISTINCT l.lapse_number) AS numero_riscatti
+FROM premiums p 
+LEFT JOIN 
+claims c ON p.pol_number = c.pol_number 
+LEFT JOIN 
+lapses L ON p.pol_number = l.pol_number
+GROUP BY p.gender; 
+```
+
+
+### Query 2
+
+Sommare i premi totali per durata per le sole polizze sinistrate con claim amount maggiore di 5000.
+
+```{sql, eval = FALSE}
+
+SELECT 
+    p.duration,
+    SUM(p.total_premium) AS total_premium
+FROM 
+    premiums p
+JOIN 
+    claims c ON p.pol_number = c.pol_number
+GROUP BY 
+    p.duration
+HAVING 
+    SUM(c.total_claim_amount) > 5000;
+
+
+```
+
+![fig.12 - query di aggregazione n° 2](q_agg_2.PNG)
+
+
+### Query 3
+
+Selezionare il massimo premio ceduto per genere.
+```{sql, eval = FALSE}
+
+SELECT
+    gender,
+    MAX(total_premium) AS massimo_premio_ceduto
+FROM
+    premiums
+GROUP BY
+    gender;
+
+```
+
+![fig.12 - query di aggregazione n° 3](q_agg_3.PNG)
+
+### Query innestate
+Le query innestate in SQL sono query che vengono eseguite all'interno di un'altra query. Queste subquery possono essere utilizzate in varie parti della query principale, come nella clausola `SELECT`, `FROM`, `WHERE`, `HAVING`, e `JOIN`e sono utili per suddividere query complesse in componenti più gestibili e per ottenere risultati intermedi che possono essere utilizzati nella query principale.
+
+### Query 1
+Selezionare tutte le polizze con premio totale maggiore o uguale del premio medio delle polizze con durata maggiore di 7 anni.
+Si noti che la media del premio totale per le polizze con durata maggiore di 7 anni è 2877.77 Euro.
+
+```{sql, eval = FALSE}
+
+SELECT 
+    pol_number, inception_date, term_date, duration, insured_capital, total_premium
+FROM 
+    premiums
+WHERE 
+    total_premium >= (SELECT AVG(total_premium) 
+                      FROM premiums
+                      WHERE duration > 7);
+
+```
+
+
+![fig.13 - query innestata n° 1](q_inn_1.PNG)
+
+### Query 2
+
+seleziona tutte le polizze con il premio totale maggiore o uguale al premio medio tra tutte le polizze per ciascun genere.
+
+```{sql, eval = FALSE}
+SELECT 
+    pol_number,
+    inception_date,
+    term_date,
+    duration,
+    insured_capital,
+    total_premium,
+    gender
+FROM 
+    premiums p
+WHERE 
+    total_premium >= ALL (
+        SELECT 
+            AVG(p2.total_premium)
+        FROM 
+            premiums p2
+        WHERE 
+            p2.gender = p.gender
+        GROUP BY 
+            p2.gender
+    );
+
+```
+
+![fig.13 - query innestata n° 2](q_inn_2.PNG)
+
+### Query 3
+
+Selezionare tutti i numeri di polizza che hanno subito un sinistro o un riscatto.
+
+
+```{sql, eval = FALSE}
+
+SELECT pol_number
+FROM claims
+
+union
+
+SELECT pol_number
+FROM lapses;
+
+
+```
+
+
+![fig.13 - query innestata n° 3](q_inn_3.PNG)
+
+
+## Viste
+Le viste sono una caratteristica consentono di salvare una query come un oggetto di database, che può essere utilizzato come se fosse una tabella. Una vista è una tabella virtuale basata sul risultato di una query SQL. 
+
+Di seguito è riportata una vista molto utile ai fini dell'analisi di esperienza sulla mortalità che viene effettuata periodicamente per analizzare l'andamento del portafoglio.
+Si noti che con la funzione `COALESCE` i valori NULL dei flag e delle date di evento vengono settati rispettivamente a 0 e 2099-12-31 ed indicano che per quel determinato record non è avvenuto un riscatto/sinistro.
+La vista `exposure_portfolio` viene utilizzata come punto di partenza per l'analisi e il monitoraggio della mortalità di un portafoglio assicurativo.
+
+```{sql, eval = FALSE}
+CREATE view exposure_portafoglio AS
+SELECT p.pol_number, p.inception_date, p.term_date, p.duration, p.gender, p.birth_date, p.ceded_premium,
+       COALESCE(c.flag_claim, 0) AS flag_claim, COALESCE(c.event_date, '2099-12-31') AS event_date,
+       COALESCE(l.flag_lapse, 0) AS flag_lapse, COALESCE(l.lapse_date, '2099-12-31') AS lapse_date
+FROM premiums  p
+LEFT JOIN
+claims c ON c.pol_number = p.pol_number
+LEFT JOIN
+lapses l ON l.pol_number = p.pol_number; 
+
+
+```
+
+![fig.13 - Vista exposure portafoglio](view.PNG)
+
+
+
